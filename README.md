@@ -42,7 +42,8 @@ conda activate logg3d_env
 ```
 - Install PyTorch with suitable cudatoolkit version. See [here](https://pytorch.org/):
 ```bash
-pip3 install torch torchvision torchaudio
+pip install torch==1.13.1+cu117 torchvision==0.14.1+cu117 torchaudio==0.13.1 --extra-index-url https://download.pytorch.org/whl/cu117
+# pip3 install torch torchvision torchaudio
 # Make sure the pytorch cuda version matches your output of 'nvcc --version'
 ```
 - Install [Open3d](https://github.com/isl-org/Open3D), [Torchpack](https://github.com/zhijian-liu/torchpack):
@@ -100,19 +101,12 @@ torchpack dist-run -np ${_NGPU} python training/train.py \
 - See ```config/train_config.py``` for all other training parameters.
 
 ### Evaluation
-For KITTI (eg. sequence 06):
-```bash
-python evaluation/evaluate.py \
-    --eval_dataset 'KittiDataset' \
-    --kitti_eval_seq 6 \
-    --checkpoint_name '/kitti_10cm_loo/2021-09-14_06-43-47_3n24h_Kitti_v10_q29_10s6_262450.pth' \
-    --skip_time 30
-```
+
 For MulRan (eg. sequence DCC03):  
 ```bash
 python evaluation/evaluate.py \
     --eval_dataset 'MulRanDataset' \
-    --mulran_eval_seq 'DCC/DCC_03' \
+    --eval_seq 'DCC/DCC_03' \
     --checkpoint_name '/mulran_10cm/2021-09-14_08-59-00_3n24h_MulRan_v10_q29_4s_263039.pth' \
     --skip_time 90
 ```
