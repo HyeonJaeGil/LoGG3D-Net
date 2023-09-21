@@ -23,7 +23,7 @@ trainer_arg.add_argument('--resume_checkpoint', type=str, default='')
 # Batch setting
 trainer_arg.add_argument('--batch_size', type=int, default=1) # Batch size is limited to 1.
 trainer_arg.add_argument('--train_num_workers', type=int,
-                         default=8)  # per gpu in dist. try 8
+                         default=1)  # per gpu in dist. try 8
 
 # Contrastive
 trainer_arg.add_argument('--train_loss_function',
@@ -31,7 +31,7 @@ trainer_arg.add_argument('--train_loss_function',
 trainer_arg.add_argument('--lazy_loss', type=str2bool, default=False)
 trainer_arg.add_argument('--ignore_zero_loss', type=str2bool, default=False)
 trainer_arg.add_argument('--positives_per_query', type=int, default=2)  # 2
-trainer_arg.add_argument('--negatives_per_query', type=int, default=2)  # 2-18
+trainer_arg.add_argument('--negatives_per_query', type=int, default=9)  # 2-18
 trainer_arg.add_argument('--loss_margin_1', type=float, default=0.5)  # 0.5
 trainer_arg.add_argument('--loss_margin_2', type=float, default=0.3)  # 0.3
 
@@ -55,9 +55,8 @@ opt_arg.add_argument('--scheduler', type=str,
 
 # Dataset specific configurations
 data_arg = add_argument_group('Data')
-# KittiPointSparseTupleDataset #MulRanPointSparseTupleDataset
 data_arg.add_argument('--dataset', type=str,
-                      default='KittiPointSparseTupleDataset')
+                      default='HeliprPointSparseTupleDataset')
 data_arg.add_argument('--collation_type', type=str,
                       default='default')  # default#sparcify_list
 data_arg.add_argument('--num_points', type=int, default=35000)
@@ -67,6 +66,7 @@ data_arg.add_argument("--gp_rem", type=str2bool,
 data_arg.add_argument("--pnv_preprocessing", type=str2bool,
                       default=False, help="Preprocessing in dataloader for PNV.")
 
+# Kitti
 data_arg.add_argument('--kitti_dir', type=str, default='/mnt/088A6CBB8A6CA742/Datasets/Kitti/dataset/',
                       help="Path to the KITTI odometry dataset")
 data_arg.add_argument('--kitti_3m_json', type=str,
@@ -82,6 +82,7 @@ data_arg.add_argument('--kitti_data_split', type=dict, default={
     'test': [8]
 })
 
+# MulRan
 data_arg.add_argument('--mulran_dir', type=str,
                       default='/mnt/088A6CBB8A6CA742/Datasets/MulRan/', help="Path to the MulRan dataset")
 data_arg.add_argument("--mulran_normalize_intensity", type=str2bool,
@@ -100,6 +101,35 @@ data_arg.add_argument('--mulran_data_split', type=dict, default={
               'Riverside/Riverside_01', 'Riverside/Riverside_03'],
     'val': [],
     'test': ['KAIST/KAIST_01']
+})
+
+# HeLiPR
+data_arg.add_argument('--helipr_dir', type=str,
+                      default='/mnt/264A65B74A658481/Dataset/HeLiPR/', help="Path to the HeLiPR dataset")
+data_arg.add_argument("--helipr_normalize_intensity", type=str2bool,
+                      default=False, help="Normalize intensity return.")
+data_arg.add_argument('--helipr_tp_json', type=str,
+                      default='positive_sequence_D-7.5_T-0.json')
+data_arg.add_argument('--helipr_fp_json', type=str,
+                      default='positive_sequence_D-20_T-0.json')
+data_arg.add_argument('--helipr_data_split', type=dict, default={
+    'train': [
+        'DCC04/Aeva', 'DCC04/Ouster',
+        'DCC05/Aeva', 'DCC05/Avia', 'DCC05/Ouster', 'DCC05/Velodyne',
+        'KAIST04/Aeva', 'KAIST04/Ouster',
+        'KAIST05/Aeva', 'KAIST05/Avia', 'KAIST05/Ouster', 'KAIST05/Velodyne',
+        'Riverside04/Aeva', 'Riverside04/Ouster',
+        'Riverside05/Aeva', 'Riverside05/Avia', 'Riverside05/Ouster', 'Riverside05/Velodyne',
+    ],
+    'val': [],
+    'test': [
+        'Bridge02/Aeva', 'Bridge02/Ouster',
+        'Bridge03/Aeva', 'Bridge03/Avia', 'Bridge03/Ouster', 'Bridge03/Velodyne',
+        'Roundabout01/Aeva', 'Roundabout01/Ouster',
+        'Roundabout03/Aeva', 'Roundabout03/Avia', 'Roundabout03/Ouster', 'Roundabout03/Velodyne',
+        'Town01/Aeva', 'Town01/Ouster',
+        'Town03/Aeva', 'Town03/Avia', 'Town03/Ouster', 'Town03/Velodyne',
+    ]
 })
 
 # Data loader configs
