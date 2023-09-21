@@ -11,9 +11,8 @@ from models.pipelines.pipeline_utils import *
 from utils.data_loaders.make_dataloader import *
 from utils.misc_utils import *
 from utils.data_loaders.mulran.mulran_dataset import load_poses_from_csv, load_timestamps_csv
-from utils.data_loaders.kitti.kitti_dataset import load_poses_from_txt, load_timestamps
 
-__all__ = ['evaluate_sequence_reg']
+__all__ = ['evaluate_intra_sequence']
 
 
 def save_pickle(data_variable, file_name):
@@ -23,37 +22,23 @@ def save_pickle(data_variable, file_name):
     logging.info(f'Finished saving: {file_name}')
 
 
-def evaluate_sequence_reg(model, cfg):
+def evaluate_intra_sequence(model, cfg):
     save_descriptors = cfg.eval_save_descriptors
     save_counts = cfg.eval_save_counts
-    plot_pr_curve = cfg.eval_plot_pr_curve
-    revisit_json_file = 'is_revisit_D-{}_T-{}.json'.format(
+    save_pr_curve = cfg.eval_save_pr_curve
+    revisit_json_file = 'is_revisit_intra_D-{}_T-{}.json'.format(
         int(cfg.revisit_criteria), int(cfg.skip_time))
-    if 'Kitti' in cfg.eval_dataset:
-        eval_seq = cfg.kitti_eval_seq
-        cfg.kitti_data_split['test'] = [eval_seq]
-        eval_seq = '%02d' % eval_seq
-        sequence_path = cfg.kitti_dir + 'sequences/' + eval_seq + '/'
-        _, positions_database = load_poses_from_txt(
-            sequence_path + 'poses.txt')
-        timestamps = load_timestamps(sequence_path + 'times.txt')
-        revisit_json_dir = os.path.join(
-            os.path.dirname(__file__), '../config/kitti_tuples/')
-        revisit_json = json.load(
-            open(revisit_json_dir + revisit_json_file, "r"))
-        is_revisit_list = revisit_json[eval_seq]
-    elif 'MulRan' in cfg.eval_dataset:
-        eval_seq = cfg.mulran_eval_seq
-        cfg.mulran_data_split['test'] = [eval_seq]
-        sequence_path = cfg.mulran_dir + eval_seq
-        _, positions_database = load_poses_from_csv(
-            sequence_path + '/scan_poses.csv')
-        timestamps = load_timestamps_csv(sequence_path + '/scan_poses.csv')
-        revisit_json_dir = os.path.join(
-            os.path.dirname(__file__), '../config/mulran_tuples/')
-        revisit_json = json.load(
-            open(revisit_json_dir + revisit_json_file, "r"))
-        is_revisit_list = revisit_json[eval_seq]
+    eval_seq = cfg.eval_seq
+    cfg.helipr_data_split['test'] = [eval_seq]
+    sequence_path = cfg.helipr_dir + eval_seq
+    _, positions_database = load_poses_from_csv(
+        sequence_path + '/scan_poses.csv')
+    timestamps = load_timestamps_csv(sequence_path + '/scan_poses.csv')
+    revisit_json_dir = os.path.join(
+        os.path.dirname(__file__), '../config/helipr_tuples/')
+    revisit_json = json.load(
+        open(revisit_json_dir + revisit_json_file, "r"))
+    is_revisit_list = revisit_json[eval_seq]
 
     logging.info(f'Evaluating sequence {eval_seq} at {sequence_path}')
     thresholds = np.linspace(
@@ -62,7 +47,7 @@ def evaluate_sequence_reg(model, cfg):
     test_loader = make_data_loader(cfg,
                                    cfg.test_phase,
                                    cfg.eval_batch_size,
-                                   num_workers=cfg.test_num_workers,
+                                   num_workers=cfg.eval_num_workers,
                                    shuffle=False)
 
     iterator = test_loader.__iter__()
@@ -155,7 +140,9 @@ def evaluate_sequence_reg(model, cfg):
                 is_correct_loc = 1
 
         logging.info(
-            f'id: {query_idx} n_id: {nearest_idx} is_rev: {is_revisit} is_correct_loc: {is_correct_loc} min_dist: {min_dist} p_dist: {p_dist}')
+            f'id: {query_idx:4d} n_id: {nearest_idx:4d} '
+            f'is_rev: {is_revisit:1d} is_correct_loc: {is_correct_loc:1d} '
+            f'min_dist: {min_dist:8f} p_dist: {p_dist:8f}')
 
         if min_dist < min_min_dist:
             min_min_dist = min_dist
@@ -181,57 +168,56 @@ def evaluate_sequence_reg(model, cfg):
 
     F1max = 0.0
     Precisions, Recalls = [], []
-    if not save_descriptors:
-        for ithThres in range(num_thresholds):
-            nTrueNegative = num_true_negative[ithThres]
-            nFalsePositive = num_false_positive[ithThres]
-            nTruePositive = num_true_positive[ithThres]
-            nFalseNegative = num_false_negative[ithThres]
+    for ithThres in range(num_thresholds):
+        nTrueNegative = num_true_negative[ithThres]
+        nFalsePositive = num_false_positive[ithThres]
+        nTruePositive = num_true_positive[ithThres]
+        nFalseNegative = num_false_negative[ithThres]
 
-            Precision = 0.0
-            Recall = 0.0
-            F1 = 0.0
+        Precision = 0.0
+        Recall = 0.0
+        F1 = 0.0
 
-            if nTruePositive > 0.0:
-                Precision = nTruePositive / (nTruePositive + nFalsePositive)
-                Recall = nTruePositive / (nTruePositive + nFalseNegative)
+        if nTruePositive > 0.0:
+            Precision = nTruePositive / (nTruePositive + nFalsePositive)
+            Recall = nTruePositive / (nTruePositive + nFalseNegative)
 
-                F1 = 2 * Precision * Recall * (1/(Precision + Recall))
+            F1 = 2 * Precision * Recall * (1/(Precision + Recall))
 
-            if F1 > F1max:
-                F1max = F1
-                F1_TN = nTrueNegative
-                F1_FP = nFalsePositive
-                F1_TP = nTruePositive
-                F1_FN = nFalseNegative
-                F1_thresh_id = ithThres
-            Precisions.append(Precision)
-            Recalls.append(Recall)
-        logging.info(f'num_revisits: {num_revisits}')
-        logging.info(f'num_correct_loc: {num_correct_loc}')
-        logging.info(
-            f'percentage_correct_loc: {num_correct_loc*100.0/num_revisits}')
-        logging.info(
-            f'min_min_dist: {min_min_dist} max_min_dist: {max_min_dist}')
-        logging.info(
-            f'F1_TN: {F1_TN} F1_FP: {F1_FP} F1_TP: {F1_TP} F1_FN: {F1_FN}')
-        logging.info(f'F1_thresh_id: {F1_thresh_id}')
-        logging.info(f'F1max: {F1max}')
+        if F1 > F1max:
+            F1max = F1
+            F1_TN = nTrueNegative
+            F1_FP = nFalsePositive
+            F1_TP = nTruePositive
+            F1_FN = nFalseNegative
+            F1_thresh_id = ithThres
+        Precisions.append(Precision)
+        Recalls.append(Recall)
+    logging.info(f'num_revisits: {num_revisits}')
+    logging.info(f'num_correct_loc: {num_correct_loc}')
+    logging.info(
+        f'percentage_correct_loc: {num_correct_loc*100.0/num_revisits}')
+    logging.info(
+        f'min_min_dist: {min_min_dist} max_min_dist: {max_min_dist}')
+    logging.info(
+        f'F1_TN: {F1_TN} F1_FP: {F1_FP} F1_TP: {F1_TP} F1_FN: {F1_FN}')
+    logging.info(f'F1_thresh_id: {F1_thresh_id}')
+    logging.info(f'F1max: {F1max}')
 
-        if plot_pr_curve:
-            plt.title('Seq: ' + str(eval_seq) +
-                      '    F1Max: ' + "%.4f" % (F1max))
-            plt.plot(Recalls, Precisions, marker='.')
-            plt.xlabel('Recall')
-            plt.ylabel('Precision')
-            plt.axis([0, 1, 0, 1.1])
-            plt.xticks(np.arange(0, 1.01, step=0.1))
-            plt.grid(True)
-            save_dir = os.path.join(os.path.dirname(__file__), 'pr_curves')
-            if not os.path.exists(save_dir):
-                os.makedirs(save_dir)
-            eval_seq = str(eval_seq).split('/')[-1]
-            plt.savefig(save_dir + '/' + eval_seq + '.png')
+    if save_pr_curve:
+        plt.title('Seq: ' + str(eval_seq) +
+                    '    F1Max: ' + "%.4f" % (F1max))
+        plt.plot(Recalls, Precisions, marker='.')
+        plt.xlabel('Recall')
+        plt.ylabel('Precision')
+        plt.axis([0, 1, 0, 1.1])
+        plt.xticks(np.arange(0, 1.01, step=0.1))
+        plt.grid(True)
+        save_dir = os.path.join(os.path.dirname(__file__), 'pr_curves')
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
+        eval_seq = str(eval_seq).split('/')[-1]
+        plt.savefig(save_dir + '/' + eval_seq + '.png')
 
     if not save_descriptors:
         logging.info('Average times per scan:')

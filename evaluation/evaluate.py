@@ -4,27 +4,19 @@ import torch
 import logging
 sys.path.append(os.path.join(os.path.dirname(__file__), '../'))
 from utils.misc_utils import log_config
-from evaluation.eval_sequence import *
+from evaluation.eval_intra_sequence import evaluate_intra_sequence
+from evaluation.eval_inter_sequence import evaluate_inter_sequence
+from datetime import datetime
 
-ch = logging.StreamHandler(sys.stdout)
+log_save_dir = os.path.join("logs", datetime.now().strftime('%Y-%m-%d_%H-%M-%S'))
+os.makedirs(log_save_dir, exist_ok=True)
+info_file_handler = logging.FileHandler(os.path.join(log_save_dir, 'info.log'))
+console_handler = logging.StreamHandler(sys.stdout)
 logging.getLogger().setLevel(logging.INFO)
 logging.basicConfig(format='%(asctime)s %(message)s',
                     datefmt='%m/%d %H:%M:%S',
-                    handlers=[ch])
+                    handlers=[info_file_handler, console_handler])
 logging.basicConfig(level=logging.INFO, format="")
-
-
-def evaluate_checkpoint(model, save_path, cfg):
-    checkpoint = torch.load(save_path)  # ,map_location='cuda:0')
-    model.load_state_dict(checkpoint['model_state_dict'])
-
-    epoch = checkpoint['epoch']
-    loss = checkpoint['loss']
-
-    model = model.cuda()
-    model.eval()
-
-    return evaluate_sequence_reg(model, cfg)
 
 
 if __name__ == "__main__":
@@ -36,18 +28,29 @@ if __name__ == "__main__":
     # Get model
     model = get_pipeline(cfg.eval_pipeline)
 
-    save_path = os.path.join(os.path.dirname(__file__), '../', 'checkpoints')
-    save_path = str(save_path) + cfg.checkpoint_name
-    print('Loading checkpoint from: ', save_path)
+    ckpt_path = os.path.join(os.path.dirname(__file__), '../', 'checkpoints')
+    ckpt_path = str(ckpt_path) + cfg.checkpoint_name
+    print('Loading checkpoint from: ', ckpt_path)
     logging.info('\n' + ' '.join([sys.executable] + sys.argv))
     log_config(cfg, logging)
 
-    eval_F1_max = evaluate_checkpoint(model, save_path, cfg)
+    checkpoint = torch.load(ckpt_path)  # ,map_location='cuda:0')
+    model.load_state_dict(checkpoint['model_state_dict'])
+    model = model.cuda()
+    model.eval()
+
+    logging.info('Task: ' + str(cfg.eval_task))
+    logging.info('Checkpoint Name: ' + str(cfg.checkpoint_name))
+    
+    if cfg.eval_task == 'intra':
+        eval_F1_max = evaluate_intra_sequence(model, cfg)
+        logging.info(f'Evaluated Sequence: {cfg.eval_seq}')
+    elif cfg.eval_task == 'inter':
+        eval_F1_max = evaluate_inter_sequence(model, cfg, log_save_dir)
+        logging.info(f'Evaluated Sequence ==> '
+                     f'Query: {cfg.eval_seq_q}, '
+                     f'Database: {cfg.eval_seq_db}')
+
     logging.info(
         '\n' + '******************* Evaluation Complete *******************')
-    logging.info('Checkpoint Name: ' + str(cfg.checkpoint_name))
-    if 'Kitti' in cfg.eval_dataset:
-        logging.info('Evaluated Sequence: ' + str(cfg.kitti_eval_seq))
-    elif 'MulRan' in cfg.eval_dataset:
-        logging.info('Evaluated Sequence: ' + str(cfg.mulran_eval_seq))
     logging.info('F1 Max: ' + str(eval_F1_max))
