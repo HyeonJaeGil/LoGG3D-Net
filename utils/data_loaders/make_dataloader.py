@@ -7,11 +7,14 @@ from utils.data_loaders.mulran.mulran_sparse_dataset import *
 from utils.data_loaders.mulran.mulran_dataset import *
 from utils.data_loaders.kitti.kitti_sparse_dataset import *
 from utils.data_loaders.kitti.kitti_dataset import *
+from utils.data_loaders.helipr.helipr_dataset import *
+from utils.data_loaders.helipr.helipr_sparse_dataset import *
 
 
 ALL_DATASETS = [
     KittiDataset, KittiTupleDataset, KittiSparseTupleDataset, KittiPointSparseTupleDataset,
-    MulRanDataset, MulRanTupleDataset, MulRanSparseTupleDataset, MulRanPointSparseTupleDataset
+    MulRanDataset, MulRanTupleDataset, MulRanSparseTupleDataset, MulRanPointSparseTupleDataset,
+    HeliprDataset, HeliprTupleDataset, HeliprSparseTupleDataset, HeliprPointSparseTupleDataset,
 ]
 dataset_str_mapping = {d.__name__: d for d in ALL_DATASETS}
 
@@ -49,20 +52,22 @@ class RandomSampler(Sampler):
 
 
 def make_data_loader(config, phase, batch_size, num_workers=0, shuffle=None, dist=None):
-    assert phase in ['train', 'trainval', 'val', 'test']
+    # assert phase in ['train', 'trainval', 'val', 'test']
     if shuffle is None:
         shuffle = phase != 'test'
 
     use_random_scale = False
     use_random_rotation = False
     use_random_occlusion = False
-    if phase in ['train', 'trainval']:
+    # if phase in ['train', 'trainval']:
+    if 'train' in phase or 'val' in phase:
         use_random_rotation = config.use_random_rotation
         use_random_scale = config.use_random_scale
         use_random_occlusion = config.use_random_occlusion
         Dataset = dataset_str_mapping[config.dataset]
 
-    elif phase in ['val', 'test']:
+    # elif phase in ['val', 'test']:
+    elif 'test' in phase:
         use_random_rotation = config.eval_random_rotation
         use_random_occlusion = config.eval_random_occlusion
         Dataset = dataset_str_mapping[config.eval_dataset]
@@ -109,6 +114,25 @@ def make_data_loader(config, phase, batch_size, num_workers=0, shuffle=None, dis
     return loader
 
 
+def make_eval_dataloader(config, phase):
+
+    dset = HeliprDataset(phase, 
+                         random_scale=False,
+                         random_rotation=config.eval_random_rotation,
+                         random_occlusion=config.eval_random_occlusion,
+                         config=config)
+    
+    collation_fn = CollationFunctionFactory('default', config.voxel_size, config.num_points)
+    
+    loader = torch.utils.data.DataLoader(dset,
+                                         batch_size=config.eval_batch_size,
+                                         num_workers=config.eval_num_workers,
+                                         collate_fn=collation_fn,
+                                         sampler=RandomSampler(dset, False),
+                                         pin_memory=True)
+    return loader
+
+
 if __name__ == "__main__":
     from config.eval_config import get_config_eval
     from utils.o3d_tools import *
@@ -119,7 +143,7 @@ if __name__ == "__main__":
     test_loader = make_data_loader(cfg,
                                    cfg.test_phase,
                                    cfg.eval_batch_size,
-                                   num_workers=cfg.test_num_workers,
+                                   num_workers=cfg.eval_num_workers,
                                    shuffle=True)
 
     iterator = test_loader.__iter__()
