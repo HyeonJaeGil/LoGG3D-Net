@@ -131,37 +131,55 @@ class HeliprTupleDataset(HeliprDataset):
             if parent_seq not in self.seq_dict:
                 self.seq_dict[parent_seq] = []
             self.seq_dict[parent_seq].append(child_seq)
-        
-        self.fnames_dict = {} # ex. {"KAIST01": [fnames1, fnames2, ...], "KAIST02": [fnames1, fnames2, ...]}
-        for parent_seq in self.seq_dict:
-            if parent_seq not in self.fnames_dict:
-                self.fnames_dict[parent_seq] = []
+
+        self.fnames_dict = {} # ex. {"KAIST": [fnames1, ...], "DCC": [fnames1, ...]}
+        for parent_seq in self.seq_dict: # ex. parent_seq: "KAIST01"
+            grandparent_seq = parent_seq[:-2]
+            if grandparent_seq not in self.fnames_dict:  # ex. grandparent_seq: "KAIST"
+                self.fnames_dict[grandparent_seq] = []
             for child_seq in self.seq_dict[parent_seq]:
                 sequence_path = os.path.join(self.root, parent_seq, child_seq, 'LiDAR')
                 fnames = sorted(glob.glob(os.path.join(sequence_path, '*.bin')))
-                self.fnames_dict[parent_seq].extend(fnames)
-                
-        self.transform_dict = {}
-        for parent_seq in self.seq_dict:
-            if parent_seq not in self.transform_dict:
-                self.transform_dict[parent_seq] = []
+                self.fnames_dict[grandparent_seq].extend(fnames)
+        
+
+        print('fnames_dict: ', self.fnames_dict.keys())
+        for k, v in self.fnames_dict.items():
+            print(k, len(v))
+
+        self.transform_dict = {} # ex. {"KAIST": [transforms1, ...], "DCC": [transforms1, ...]}
+        for parent_seq in self.seq_dict: # ex. parent_seq: "KAIST01"
+            grandparent_seq = parent_seq[:-2]
+            if grandparent_seq not in self.transform_dict:
+                self.transform_dict[grandparent_seq] = []
             for child_seq in self.seq_dict[parent_seq]:
                 sequence_path = os.path.join(self.root, parent_seq, child_seq, 'scan_poses.csv')
                 transforms, _ = load_poses_from_csv(sequence_path)
-                self.transform_dict[parent_seq].extend(transforms)
-            self.transform_dict[parent_seq] = np.stack(self.transform_dict[parent_seq], axis=0)
+                self.transform_dict[grandparent_seq].extend(transforms)
+        for grandparent_seq in self.transform_dict:
+            self.transform_dict[grandparent_seq] = np.stack(self.transform_dict[grandparent_seq], axis=0)
         
-        self.helipr_seq_lens = {}
-        for parent_seq in self.seq_dict:
-            self.helipr_seq_lens[parent_seq] = len(self.fnames_dict[parent_seq])
-        
-        for parent_seq in self.seq_dict:
-            for i, fname in enumerate(self.fnames_dict[parent_seq]):
-                # append (seq, query_id, positives, negatives) to self.files
-                self.files.append((parent_seq, i, 
-                                   self.get_positives(parent_seq, i), 
-                                   self.get_negatives(parent_seq, i)))
+        print('transform_dict', self.transform_dict.keys())
+        for k, v in self.transform_dict.items():
+            print(k, len(v))
+        # exit()
 
+        self.helipr_seq_lens = {}
+        for grandparent_seq in self.fnames_dict.keys():
+            self.helipr_seq_lens[grandparent_seq] = len(self.fnames_dict[grandparent_seq])
+
+        print('helipr_seq_lens', self.helipr_seq_lens.keys())
+        for k, v in self.helipr_seq_lens.items():
+            print(k, v)
+
+        for grandparent_seq, fnames in self.fnames_dict.items():
+            for i, fname in enumerate(fnames):
+                self.files.append((grandparent_seq, i, 
+                                   self.get_positives(grandparent_seq, i), 
+                                   self.get_negatives(grandparent_seq, i)))
+
+
+        # OLD
         # for drive_id in sequences:
         #     sequence_path = self.root + drive_id + '/LiDAR/'
         #     fnames = sorted(glob.glob(os.path.join(sequence_path, '*.bin')))
