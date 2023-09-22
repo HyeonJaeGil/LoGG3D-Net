@@ -33,8 +33,8 @@ class HeliprSparseTupleDataset(HeliprTupleDataset):
         self.gp_rem = config.gp_rem
         self.int_norm = config.helipr_normalize_intensity
 
-    def get_pointcloud_sparse_tensor(self, drive_id, pc_id):
-        fname = self.get_velodyne_fn(drive_id, pc_id)
+    def get_pointcloud_sparse_tensor(self, parent_seq, pc_id):
+        fname = self.get_velodyne_fn(parent_seq, pc_id)
         xyzr = np.fromfile(fname, dtype=np.float32).reshape(-1, 4)
         range = np.linalg.norm(xyzr[:, :3], axis=1)
         range_filter = np.logical_and(range > 0.1, range < 80)
@@ -81,7 +81,7 @@ class HeliprSparseTupleDataset(HeliprTupleDataset):
         return sparse_pc
 
     def __getitem__(self, idx):
-        drive_id, query_id = self.files[idx][0], self.files[idx][1]
+        parent_seq, query_id = self.files[idx][0], self.files[idx][1]
         positive_ids, negative_ids = self.files[idx][2], self.files[idx][3]
 
         sel_positive_ids = random.sample(
@@ -90,15 +90,15 @@ class HeliprSparseTupleDataset(HeliprTupleDataset):
             negative_ids, self.negatives_per_query)
         positives, negatives, other_neg = [], [], None
 
-        query_th = self.get_pointcloud_sparse_tensor(drive_id, query_id)
+        query_th = self.get_pointcloud_sparse_tensor(parent_seq, query_id)
         for sp_id in sel_positive_ids:
             positives.append(
-                self.get_pointcloud_sparse_tensor(drive_id, sp_id))
+                self.get_pointcloud_sparse_tensor(parent_seq, sp_id))
         for sn_id in sel_negative_ids:
             negatives.append(
-                self.get_pointcloud_sparse_tensor(drive_id, sn_id))
+                self.get_pointcloud_sparse_tensor(parent_seq, sn_id))
 
-        meta_info = {'drive': drive_id, 'query_id': query_id}
+        meta_info = {'drive': parent_seq, 'query_id': query_id}
 
         if not self.quadruplet:
             return {
@@ -109,9 +109,9 @@ class HeliprSparseTupleDataset(HeliprTupleDataset):
             }
         else:  # For Quadruplet Loss
             other_neg_id = self.get_other_negative(
-                drive_id, query_id, sel_positive_ids, sel_negative_ids)
+                parent_seq, query_id, sel_positive_ids, sel_negative_ids)
             other_neg_th = self.get_pointcloud_sparse_tensor(
-                drive_id, other_neg_id)
+                parent_seq, other_neg_id)
             return {
                 'query': query_th,
                 'positives': positives,
@@ -146,9 +146,9 @@ class HeliprPointSparseTupleDataset(HeliprSparseTupleDataset):
         self.int_norm = config.helipr_normalize_intensity
 
     def base_2_lidar(self, wTb):
-        bTl = np.asarray([-0.999982947984152,  -0.005839838492430,   -0.000005225706031,  1.7042,
-                          0.005839838483221,   -0.999982947996283,   0.000001775876813,   -0.0210,
-                          -0.000005235987756,  0.000001745329252,    0.999999999984769,  1.8047,
+        bTl = np.asarray([1, 0, 0, 0,
+                          0, 1, 0, 0,
+                          0, 0, 1, 0,
                           0, 0, 0, 1]
                          ).reshape(4, 4)
         return wTb @ bTl
@@ -161,26 +161,15 @@ class HeliprPointSparseTupleDataset(HeliprSparseTupleDataset):
         p1_T_p2 = np.matmul(p1_T_w, w_T_p2)
         return p1_T_p2
 
-    def get_gt_transforms(self, drive, indices=None, ext='.txt', return_all=False):
+    def get_gt_transforms(self, drive, indices):
+        transform_dict = self.transform_dict[drive]
+        return transform_dict[indices]
+    
+        
+    def get_gt_transforms_old(self, drive, indices=None, ext='.txt', return_all=False):
         poses_path = self.root + drive + '/scan_poses.csv'
         poses_full, _ = load_poses_from_csv(poses_path)
         return poses_full[indices]
-
-    def generate_rand_negative_pairs(self, positive_pairs, hash_seed, N0, N1, N_neg=0):
-        """
-        Generate random negative pairs
-        """
-        if not isinstance(positive_pairs, np.ndarray):
-            positive_pairs = np.array(positive_pairs, dtype=np.int64)
-        if N_neg < 1:
-            N_neg = positive_pairs.shape[0] * 2
-        pos_keys = hashM(positive_pairs, hash_seed)
-
-        neg_pairs = np.floor(np.random.rand(int(N_neg), 2) * np.array([[N0, N1]])).astype(
-            np.int64)
-        neg_keys = hashM(neg_pairs, hash_seed)
-        mask = np.isin(neg_keys, pos_keys, assume_unique=False)
-        return neg_pairs[np.logical_not(mask)]
 
     def get_sparse_pcd(self, drive_id, pc_id):
         fname = self.get_velodyne_fn(drive_id, pc_id)
@@ -221,7 +210,7 @@ class HeliprPointSparseTupleDataset(HeliprSparseTupleDataset):
         q_st, q_pcd = self.get_sparse_pcd(drive_id, query_id)
         p_st, p_pcd = self.get_sparse_pcd(drive_id, pos_id)
 
-        matching_search_voxel_size = min(self.voxel_size*1.5, 0.1)
+        matching_search_voxel_size = min(self.voxel_size*1.5, 1)
         all_odometry = self.get_gt_transforms(drive_id, [query_id, pos_id])
         delta_T = self.get_delta_pose(all_odometry)
         p_pcd.transform(delta_T) # Transform to query frame
@@ -234,7 +223,7 @@ class HeliprPointSparseTupleDataset(HeliprSparseTupleDataset):
 
         pos_pairs = get_matching_indices(
             q_pcd, p_pcd, matching_search_voxel_size)
-        assert pos_pairs.ndim == 2, f"No pos_pairs for {query_id} in drive id: {drive_id}"
+        # assert pos_pairs.ndim == 2, f"No pos_pairs for {query_id} in drive id: {drive_id}"
 
         return q_st, p_st, pos_pairs
 
@@ -242,12 +231,18 @@ class HeliprPointSparseTupleDataset(HeliprSparseTupleDataset):
         drive_id, query_id = self.files[idx][0], self.files[idx][1]
         positive_ids, negative_ids = self.files[idx][2], self.files[idx][3]
 
-        sel_positive_ids = random.sample(
-            positive_ids, self.positives_per_query)
+        try:
+            sel_positive_ids = random.sample(
+                positive_ids, self.positives_per_query)
+        except ValueError:
+            sel_positive_ids = positive_ids
+        
         sel_negative_ids = random.sample(
             negative_ids, self.negatives_per_query)
         positives, negatives, other_neg = [], [], None
 
+        if len(sel_positive_ids) < 1:
+            print(f"No positive pairs for {query_id} in drive id: {drive_id}")
         query_st, p_st, pos_pairs = self.get_point_tuples(
             drive_id, query_id, sel_positive_ids[0])
         positives.append(p_st)

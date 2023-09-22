@@ -123,36 +123,77 @@ class HeliprTupleDataset(HeliprDataset):
         tuple_dir = os.path.join(os.path.dirname(
             __file__), '../../../config/helipr_tuples/')
         self.dict_3m = json.load(open(tuple_dir + config.helipr_tp_json, "r"))
-        self.dict_20m = json.load(
-            open(tuple_dir + config.helipr_fp_json, "r"))
+        self.dict_20m = json.load(open(tuple_dir + config.helipr_fp_json, "r"))
+
+        self.seq_dict = {}
+        for sequence in sequences:
+            parent_seq, child_seq = sequence.split('/')
+            if parent_seq not in self.seq_dict:
+                self.seq_dict[parent_seq] = []
+            self.seq_dict[parent_seq].append(child_seq)
+        
+        self.fnames_dict = {} # ex. {"KAIST01": [fnames1, fnames2, ...], "KAIST02": [fnames1, fnames2, ...]}
+        for parent_seq in self.seq_dict:
+            if parent_seq not in self.fnames_dict:
+                self.fnames_dict[parent_seq] = []
+            for child_seq in self.seq_dict[parent_seq]:
+                sequence_path = os.path.join(self.root, parent_seq, child_seq, 'LiDAR')
+                fnames = sorted(glob.glob(os.path.join(sequence_path, '*.bin')))
+                self.fnames_dict[parent_seq].extend(fnames)
+                
+        self.transform_dict = {}
+        for parent_seq in self.seq_dict:
+            if parent_seq not in self.transform_dict:
+                self.transform_dict[parent_seq] = []
+            for child_seq in self.seq_dict[parent_seq]:
+                sequence_path = os.path.join(self.root, parent_seq, child_seq, 'scan_poses.csv')
+                transforms, _ = load_poses_from_csv(sequence_path)
+                self.transform_dict[parent_seq].extend(transforms)
+            self.transform_dict[parent_seq] = np.stack(self.transform_dict[parent_seq], axis=0)
+        
         self.helipr_seq_lens = {}
-        for drive_id in sequences:
-            sequence_path = self.root + drive_id + '/LiDAR/'
-            fnames = sorted(glob.glob(os.path.join(sequence_path, '*.bin')))
-            assert len(
-                fnames) > 0, f"Make sure that the path {root} has data {drive_id}"
-            inames = sorted([int(os.path.split(fname)[-1][:-4])
-                            for fname in fnames])
-            self.helipr_seq_lens[drive_id] = len(inames)
+        for parent_seq in self.seq_dict:
+            self.helipr_seq_lens[parent_seq] = len(self.fnames_dict[parent_seq])
+        
+        for parent_seq in self.seq_dict:
+            for i, fname in enumerate(self.fnames_dict[parent_seq]):
+                # append (seq, query_id, positives, negatives) to self.files
+                self.files.append((parent_seq, i, 
+                                   self.get_positives(parent_seq, i), 
+                                   self.get_negatives(parent_seq, i)))
 
-            for query_id, start_time in enumerate(inames):
-                positives = self.get_positives(drive_id, query_id)
-                negatives = self.get_negatives(drive_id, query_id)
-                self.files.append((drive_id, query_id, positives, negatives))
+        # for drive_id in sequences:
+        #     sequence_path = self.root + drive_id + '/LiDAR/'
+        #     fnames = sorted(glob.glob(os.path.join(sequence_path, '*.bin')))
+        #     assert len(
+        #         fnames) > 0, f"Make sure that the path {root} has data {drive_id}"
+        #     inames = sorted([int(os.path.split(fname)[-1][:-4])
+        #                     for fname in fnames])
+        #     self.helipr_seq_lens[drive_id] = len(inames)
 
-    def get_positives(self, sq, index):
-        assert sq in self.dict_3m.keys(), f"Error: Sequence {sq} not in json."
-        sq_1 = self.dict_3m[sq]
+        #     for query_id, start_time in enumerate(inames):
+        #         positives = self.get_positives(drive_id, query_id)
+        #         negatives = self.get_negatives(drive_id, query_id)
+        #         self.files.append((drive_id, query_id, positives, negatives))
+
+
+
+    def get_velodyne_fn(self, parent_sq, query_id): # ex. parent_sq: "KAIST01", query_id: 1000
+        return self.fnames_dict[parent_sq][query_id]
+
+
+    def get_positives(self, parent_sq, index): # ex. parent_sq: "KAIST01", index: 1000
+        sq_1 = self.dict_3m[parent_sq] 
         if str(int(index)) in sq_1:
             positives = sq_1[str(int(index))]
         else:
             positives = []
         return positives
 
-    def get_negatives(self, sq, index):
-        assert sq in self.dict_20m.keys(), f"Error: Sequence {sq} not in json."
-        sq_2 = self.dict_20m[sq]
-        all_ids = set(np.arange(self.helipr_seq_lens[sq]))
+
+    def get_negatives(self, parent_sq, index):  # ex. sq: "KAIST01", index: 1000
+        sq_2 = self.dict_20m[parent_sq]
+        all_ids = set(np.arange(self.helipr_seq_lens[parent_sq]))
         neg_set_inv = sq_2[str(int(index))]
         neg_set = all_ids.difference(neg_set_inv)
         negatives = list(neg_set)
@@ -160,54 +201,58 @@ class HeliprTupleDataset(HeliprDataset):
             negatives.remove(index)
         return negatives
 
-    def get_other_negative(self, drive_id, query_id, sel_positive_ids, sel_negative_ids):
+
+    def get_other_negative(self, parent_sq, query_id, sel_positive_ids, sel_negative_ids):
         # Dissimillar to all pointclouds in triplet tuple.
-        all_ids = range(self.helipr_seq_lens[str(drive_id)])
+        all_ids = range(self.helipr_seq_lens[str(parent_sq)])
         neighbour_ids = sel_positive_ids
         for neg in sel_negative_ids:
-            neg_postives_files = self.get_positives(drive_id, neg)
+            neg_postives_files = self.get_positives(parent_sq, neg)
             for pos in neg_postives_files:
                 neighbour_ids.append(pos)
         possible_negs = list(set(all_ids) - set(neighbour_ids))
         if query_id in possible_negs:
             possible_negs.remove(query_id)
         assert len(
-            possible_negs) > 0, f"No other negatives for drive {drive_id} id {query_id}"
+            possible_negs) > 0, f"No other negatives for sequence {parent_sq} id {query_id}"
         other_neg_id = random.sample(possible_negs, 1)
         return other_neg_id[0]
 
+
     def __getitem__(self, idx):
-        drive_id, query_id = self.files[idx][0], self.files[idx][1]
-        positive_ids, negative_ids = self.files[idx][2], self.files[idx][3]
+        print("[HeliprTupleDataset.__getitem__]: NOT IMPLEMENTED YET")
+        return None
+        # drive_id, query_id = self.files[idx][0], self.files[idx][1]
+        # positive_ids, negative_ids = self.files[idx][2], self.files[idx][3]
 
-        sel_positive_ids = random.sample(
-            positive_ids, self.positives_per_query)
-        sel_negative_ids = random.sample(
-            negative_ids, self.negatives_per_query)
-        positives, negatives, other_neg = [], [], None
+        # sel_positive_ids = random.sample(
+        #     positive_ids, self.positives_per_query)
+        # sel_negative_ids = random.sample(
+        #     negative_ids, self.negatives_per_query)
+        # positives, negatives, other_neg = [], [], None
 
-        query_th = self.get_pointcloud_tensor(drive_id, query_id)
-        for sp_id in sel_positive_ids:
-            positives.append(self.get_pointcloud_tensor(drive_id, sp_id))
-        for sn_id in sel_negative_ids:
-            negatives.append(self.get_pointcloud_tensor(drive_id, sn_id))
+        # query_th = self.get_pointcloud_tensor(drive_id, query_id)
+        # for sp_id in sel_positive_ids:
+        #     positives.append(self.get_pointcloud_tensor(drive_id, sp_id))
+        # for sn_id in sel_negative_ids:
+        #     negatives.append(self.get_pointcloud_tensor(drive_id, sn_id))
 
-        meta_info = {'drive': drive_id, 'query_id': query_id}
+        # meta_info = {'drive': drive_id, 'query_id': query_id}
 
-        if not self.quadruplet:
-            return (query_th,
-                    positives,
-                    negatives,
-                    meta_info)
-        else:  # For Quadruplet Loss
-            other_neg_id = self.get_other_negative(
-                drive_id, query_id, sel_positive_ids, sel_negative_ids)
-            other_neg_th = self.get_pointcloud_tensor(drive_id, other_neg_id)
-            return (query_th,
-                    positives,
-                    negatives,
-                    other_neg_th,
-                    meta_info)
+        # if not self.quadruplet:
+        #     return (query_th,
+        #             positives,
+        #             negatives,
+        #             meta_info)
+        # else:  # For Quadruplet Loss
+        #     other_neg_id = self.get_other_negative(
+        #         drive_id, query_id, sel_positive_ids, sel_negative_ids)
+        #     other_neg_th = self.get_pointcloud_tensor(drive_id, other_neg_id)
+        #     return (query_th,
+        #             positives,
+        #             negatives,
+        #             other_neg_th,
+        #             meta_info)
 
 #####################################################################################
 # Load poses

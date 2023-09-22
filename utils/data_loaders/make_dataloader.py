@@ -65,6 +65,7 @@ def make_data_loader(config, phase, batch_size, num_workers=0, shuffle=None, dis
         use_random_scale = config.use_random_scale
         use_random_occlusion = config.use_random_occlusion
         Dataset = dataset_str_mapping[config.dataset]
+        print('Dataset: ', Dataset)
 
     # elif phase in ['val', 'test']:
     elif 'test' in phase:
@@ -97,12 +98,13 @@ def make_data_loader(config, phase, batch_size, num_workers=0, shuffle=None, dis
             shuffle=(phase == 'train'))
     else:
         sampler = RandomSampler(dset, shuffle)
-        logging.info('collation_type: ' + str(collation_type))
-        logging.info('num_workers: ' + str(num_workers))
-        logging.info('shuffle: ' + str(shuffle))
-        logging.info('use_random_rotation: ' + str(use_random_rotation))
-        logging.info('use_random_occlusion: ' + str(use_random_occlusion))
-        logging.info('use_random_scale: ' + str(use_random_scale))
+    logging.info('collation_type: ' + str(collation_type))
+    logging.info('num_workers: ' + str(num_workers))
+    logging.info('shuffle: ' + str(shuffle))
+    logging.info('use_random_rotation: ' + str(use_random_rotation))
+    logging.info('use_random_occlusion: ' + str(use_random_occlusion))
+    logging.info('use_random_scale: ' + str(use_random_scale))
+
 
     loader = torch.utils.data.DataLoader(dset,
                                          batch_size=batch_size,
