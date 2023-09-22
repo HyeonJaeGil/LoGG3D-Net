@@ -25,11 +25,12 @@ logging.basicConfig(level=logging.INFO, format="")
 
 
 def main():
-    dist.init()
+    # dist.init()
     torch.backends.cudnn.benchmark = True
-    torch.cuda.set_device(dist.local_rank())
+    # torch.cuda.set_device(dist.local_rank())
 
-    if (dist.rank() % dist.size() == 0):
+    # if (dist.rank() % dist.size() == 0):
+    if True:
         writer = SummaryWriter(comment=f"_{cfg.job_id}")
 
         logger = logging.getLogger()
@@ -40,8 +41,8 @@ def main():
         cfg.experiment_name = f"{datetime.now(tz=None).strftime('%Y-%m-%d_%H-%M-%S')}_{cfg.experiment_name}_{cfg.job_id}"
         logging.info("Experiment Name: " + cfg.experiment_name)
 
-        logging.info('dist size: ' + str(dist.size()))
-        logging.info('dist rank: ' + str(dist.rank()))
+        # logging.info('dist size: ' + str(dist.size()))
+        # logging.info('dist rank: ' + str(dist.rank()))
 
     # Get model
     model = get_pipeline(cfg.train_pipeline)
@@ -67,10 +68,11 @@ def main():
     else:
         starting_epoch = 0
 
-    model = torch.nn.parallel.DistributedDataParallel(
-        model.to('cuda:%d' % dist.local_rank()),
-        device_ids=[dist.local_rank()],
-        find_unused_parameters=True)
+    model = model.to('cuda')
+    # model = torch.nn.parallel.DistributedDataParallel(
+    #     model.to('cuda:%d' % dist.local_rank()),
+    #     device_ids=[dist.local_rank()],
+    #     find_unused_parameters=True)
 
     # Get data loader
     train_loader = make_data_loader(cfg,
@@ -78,10 +80,12 @@ def main():
                                     cfg.batch_size,
                                     num_workers=cfg.train_num_workers,
                                     shuffle=True,
-                                    dist=[dist.size(), dist.rank()])
+                                    dist=None)
+                                    # dist=[dist.size(), dist.rank()])
 
     for epoch in range(starting_epoch, cfg.max_epoch):
-        if (dist.rank() % dist.size() == 0):
+        # if (dist.rank() % dist.size() == 0):
+        if True:
             lr = scheduler.get_last_lr()
             logging.info('\n' + '**** EPOCH %03d ****' %
                          (epoch) + ' LR: %03f' % (lr[0]))
@@ -92,7 +96,8 @@ def main():
 
         for i, batch in enumerate(train_loader, 0):
             if cfg.train_pipeline == 'LOGG3D':
-                batch_st = batch[0].to('cuda:%d' % dist.local_rank())
+                batch_st = batch[0].to('cuda')
+                # batch_st = batch[0].to('cuda:%d' % dist.local_rank())
                 if not batch[1]['pos_pairs'].ndim == 2:
                     continue
                 output = model(batch_st)
@@ -123,7 +128,8 @@ def main():
                 avg_scene_loss = running_scene_loss / cfg.loss_log_step
                 avg_point_loss = running_point_loss / cfg.loss_log_step
 
-                if (dist.rank() % dist.size() == 0):
+                # if (dist.rank() % dist.size() == 0):
+                if True:
                     lr = scheduler.get_last_lr()
                     logging.info('avg running loss: ' +
                                  str(avg_loss) + ' LR: %03f' % (lr[0]))
@@ -142,7 +148,8 @@ def main():
 
         scheduler.step()
 
-        if cfg.save_model_after_epoch and (dist.rank() % dist.size() == 0):
+        # if cfg.save_model_after_epoch and (dist.rank() % dist.size() == 0):
+        if cfg.save_model_after_epoch and True:
             save_path = os.path.join(os.path.dirname(__file__), 'checkpoints')
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
