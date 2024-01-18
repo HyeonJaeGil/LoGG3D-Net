@@ -170,12 +170,12 @@ def main():
                 os.path.join(save_path, 'epoch_' + str(epoch) + '.pth'))
                 # save_path)
             
-            import subprocess
-            subprocess.run(["python3", "evaluation/evaluate.py", 
-                            "--no_log", "--skip_time", "-1", 
-                            "--eval_seq_q", "Roundabout03/Aeva", 
-                            "--eval_seq_db", "Roundabout01/Aeva", 
-                            "--checkpoint_name", os.path.join(save_path, 'epoch_' + str(epoch) + '.pth')])
+            # import subprocess
+            # subprocess.run(["python3", "evaluation/evaluate.py", 
+            #                 "--no_log", "--skip_time", "-1", 
+            #                 "--eval_seq_q", "Roundabout03/Aeva", 
+            #                 "--eval_seq_db", "Roundabout01/Aeva", 
+            #                 "--checkpoint_name", os.path.join(save_path, 'epoch_' + str(epoch) + '.pth')])
 
     logging.info("Finished training.")
 
