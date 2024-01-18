@@ -30,27 +30,32 @@ if __name__ == "__main__":
 
     ckpt_path = os.path.join(os.path.dirname(__file__), '../', 'training', 'checkpoints')
     ckpt_path = str(ckpt_path) + cfg.checkpoint_name
-    print('Loading checkpoint from: ', ckpt_path)
-    logging.info('\n' + ' '.join([sys.executable] + sys.argv))
-    log_config(cfg, logging)
+    if not cfg.no_log:
+        print('Loading checkpoint from: ', ckpt_path)
+        logging.info('\n' + ' '.join([sys.executable] + sys.argv))
+        log_config(cfg, logging)
 
     checkpoint = torch.load(ckpt_path)  # ,map_location='cuda:0')
     model.load_state_dict(checkpoint['model_state_dict'])
     model = model.cuda()
     model.eval()
 
-    logging.info('Task: ' + str(cfg.eval_task))
-    logging.info('Checkpoint Name: ' + str(cfg.checkpoint_name))
+    # logging.info('Task: ' + str(cfg.eval_task))
+    # logging.info('Checkpoint Name: ' + str(cfg.checkpoint_name))
     
     if cfg.eval_task == 'intra':
-        eval_F1_max = evaluate_intra_sequence(model, cfg)
+        eval_output = evaluate_intra_sequence(model, cfg)
         logging.info(f'Evaluated Sequence: {cfg.eval_seq}')
     elif cfg.eval_task == 'inter':
-        eval_F1_max = evaluate_inter_sequence(model, cfg, log_save_dir)
+        eval_output = evaluate_inter_sequence(model, cfg, log_save_dir)
         logging.info(f'Evaluated Sequence ==> '
                      f'Query: {cfg.eval_seq_q}, '
                      f'Database: {cfg.eval_seq_db}')
 
     logging.info(
         '\n' + '******************* Evaluation Complete *******************')
-    logging.info('F1 Max: ' + str(eval_F1_max))
+    # logging.info('F1 Max: ' + str(eval_output['F1_max']))
+    logging.info('AUC: ' + str(eval_output['AUC']))
+    logging.info('recall@1: ' + str(eval_output['recall@1']))
+    logging.info('recall@1%: ' + str(eval_output['recall@1%']))
+    

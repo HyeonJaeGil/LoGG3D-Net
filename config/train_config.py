@@ -67,43 +67,6 @@ data_arg.add_argument("--gp_rem", type=str2bool,
 data_arg.add_argument("--pnv_preprocessing", type=str2bool,
                       default=False, help="Preprocessing in dataloader for PNV.")
 
-# Kitti
-data_arg.add_argument('--kitti_dir', type=str, default='/mnt/088A6CBB8A6CA742/Datasets/Kitti/dataset/',
-                      help="Path to the KITTI odometry dataset")
-data_arg.add_argument('--kitti_3m_json', type=str,
-                      default='positive_sequence_D-3_T-0.json')
-data_arg.add_argument('--kitti_20m_json', type=str,
-                      default='positive_sequence_D-20_T-0.json')
-data_arg.add_argument('--kitti_seq_lens', type=dict, default={
-    "0": 4541, "1": 1101, "2": 4661, "3": 801, "4": 271, "5": 2761,
-    "6": 1101, "7": 1101, "8": 4071, "9": 1591, "10": 1201})
-data_arg.add_argument('--kitti_data_split', type=dict, default={
-    'train': [0, 1, 2, 3, 4, 5, 6, 7, 9, 10],
-    'val': [],
-    'test': [8]
-})
-
-# MulRan
-data_arg.add_argument('--mulran_dir', type=str,
-                      default='/mnt/088A6CBB8A6CA742/Datasets/MulRan/', help="Path to the MulRan dataset")
-data_arg.add_argument("--mulran_normalize_intensity", type=str2bool,
-                      default=False, help="Normalize intensity return.")
-data_arg.add_argument('--mulran_3m_json', type=str,
-                      default='positive_sequence_D-3_T-0.json')
-data_arg.add_argument('--mulran_20m_json', type=str,
-                      default='positive_sequence_D-20_T-0.json')
-data_arg.add_argument('--mulran_seq_lens', type=dict, default={
-    "DCC/DCC_01": 5542, "DCC/DCC_02": 7561, "DCC/DCC_03": 7479,
-    "KAIST/KAIST_01": 8226, "KAIST/KAIST_02": 8941, "KAIST/KAIST_03": 8629,
-    "Sejong/Sejong_01": 28779, "Sejong/Sejong_02": 27494, "Sejong/Sejong_03": 27215,
-    "Riverside/Riverside_01": 5537, "Riverside/Riverside_02": 8157, "Riverside/Riverside_03": 10476})
-data_arg.add_argument('--mulran_data_split', type=dict, default={
-    'train': ['DCC/DCC_01', 'DCC/DCC_02',
-              'Riverside/Riverside_01', 'Riverside/Riverside_03'],
-    'val': [],
-    'test': ['KAIST/KAIST_01']
-})
-
 # HeLiPR
 data_arg.add_argument('--helipr_dir', type=str,
                       default='/Dataset/', help="Path to the HeLiPR dataset")

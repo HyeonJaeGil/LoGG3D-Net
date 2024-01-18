@@ -83,6 +83,7 @@ data_arg.add_argument('--occlusion_angle', type=float, default=30)
 data_arg.add_argument('--use_random_scale', type=str2bool, default=False)
 data_arg.add_argument('--min_scale', type=float, default=0.8)
 data_arg.add_argument('--max_scale', type=float, default=1.2)
+data_arg.add_argument('--no_log', action='store_true')
 
 
 def get_config_eval():

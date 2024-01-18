@@ -41,14 +41,14 @@ def save_pickle(data_variable, file_name):
     dbfile2 = open(file_name, 'ab')
     pickle.dump(data_variable, dbfile2)
     dbfile2.close()
-    logging.info(f'Finished saving: {file_name}')
+    logging.debug(f'Finished saving: {file_name}')
 
 
 def load_pickle(file_name):
     dbfile = open(file_name, 'rb')
     data_variable = pickle.load(dbfile)
     dbfile.close()
-    logging.info(f'Finished loading: {file_name}')
+    logging.debug(f'Finished loading: {file_name}')
     return data_variable
 
 
@@ -65,7 +65,7 @@ def parse_sequence(cfg, type):
     cfg.helipr_data_split['test_q' if type == 'query' else 'test_db'] = eval_seq
     test_loader = make_eval_dataloader(cfg, 'test_q' if type == 'query' else 'test_db')
     iterator = test_loader.__iter__()
-    logging.info(f'length of {type} dataloader {len(test_loader.dataset)}')
+    logging.debug(f'length of {type} dataloader {len(test_loader.dataset)}')
     return positions, timestamps, iterator
 
 
@@ -75,7 +75,7 @@ def extract_global_descriptors(model, iterator, cfg):
         input_data = next(iterator)
         lidar_pc = input_data[0][0]
         if not len(lidar_pc) > 0:
-            logging.info(f'Corrupt cloud id: {idx}')
+            logging.debug(f'Corrupt cloud id: {idx}')
             descriptors.append(None)
             continue
         input = make_sparse_tensor(lidar_pc, cfg.voxel_size).cuda()
@@ -83,7 +83,7 @@ def extract_global_descriptors(model, iterator, cfg):
         global_descriptor = output_desc.cpu().detach().numpy()
         global_descriptor = np.reshape(global_descriptor, (1, -1))
         if len(global_descriptor) < 1:
-            logging.info(f'Corrupt descriptor id: {idx}')
+            logging.debug(f'Corrupt descriptor id: {idx}')
             descriptors.append(None)
             continue
         descriptors.append(global_descriptor)
@@ -179,14 +179,14 @@ def evaluate_inter_sequence(model, cfg, save_dir=None):
         #                f'min_dist: {min_dist:8f}')
         
         # if is_revisit and is_nearby: # Found correct Top 1
-        #     logging.info(colored(info_string, 'green'))
+        #     logging.debug(colored(info_string, 'green'))
         # elif is_revisit and not is_nearby: # Not found correct Top 1
-        #     logging.info(colored(info_string, 'red'))
+        #     logging.debug(colored(info_string, 'red'))
         # elif not is_revisit and not is_nearby: # first time visit, so not found a revisit
-        #     logging.info(colored(info_string, 'blue'))
+        #     logging.debug(colored(info_string, 'blue'))
         # elif not is_revisit and is_nearby:  # Weird: first time visit, but found a revisit
         #     print('[ERROR] top1 candidate is very nearby, but not a revisit')
-        #     logging.info(colored(info_string, 'yellow'))
+        #     logging.debug(colored(info_string, 'yellow'))
         #     exit(0)
 
         if min_dist < min_min_dist:
@@ -235,18 +235,18 @@ def evaluate_inter_sequence(model, cfg, save_dir=None):
             F1_thresh_id = ithThres
         Precisions.append(Precision)
         Recalls.append(Recall)
-    logging.info(f'num_revisits: {num_revisits}')
-    logging.info(f'num_correct_loc: {num_correct_loc}')
-    logging.info(
+    logging.debug(f'num_revisits: {num_revisits}')
+    logging.debug(f'num_correct_loc: {num_correct_loc}')
+    logging.debug(
         f'percentage_correct_loc: {num_correct_loc*100.0/num_revisits}')
-    logging.info(
+    logging.debug(
         f'min_min_dist: {min_min_dist} max_min_dist: {max_min_dist}')
-    logging.info(
+    logging.debug(
         f'F1_TN: {F1_TN} F1_FP: {F1_FP} F1_TP: {F1_TP} F1_FN: {F1_FN}')
-    logging.info(f'F1_thresh_id: {F1_thresh_id}')
-    logging.info(f'F1max: {F1max}')
-    logging.info(f'recall@1:  {num_correct_recall_1*100.0/num_revisits}')
-    logging.info(f'recall@1%: {num_correct_recall_1p*100.0/num_revisits}')
+    logging.debug(f'F1_thresh_id: {F1_thresh_id}')
+    logging.debug(f'F1max: {F1max}')
+    logging.debug(f'recall@1:  {num_correct_recall_1*100.0/num_revisits}')
+    logging.debug(f'recall@1%: {num_correct_recall_1p*100.0/num_revisits}')
 
     ##### Save results #####
     save_descriptors = cfg.eval_save_descriptors
@@ -266,7 +266,7 @@ def evaluate_inter_sequence(model, cfg, save_dir=None):
 
     if save_pr_curve:
         AUC = np.trapz(Precisions, Recalls)
-        logging.info(f'AUC: {AUC}')
+        logging.debug(f'AUC: {AUC}')
         plt.title('Seq: ' + str(eval_seq_save) +
                     '    AUC: ' + "%.4f" % (AUC))
         plt.plot(Recalls, Precisions, marker='.')
@@ -309,7 +309,15 @@ def evaluate_inter_sequence(model, cfg, save_dir=None):
         save_pickle(positions_query, os.path.join(save_dir, 'logg3d_poses_q.pickle'))
         save_pickle(timestamps_query, os.path.join(save_dir, 'logg3d_timestamps_q.pickle'))
 
-    return F1max
+
+    output = {
+        'AUC': AUC,
+        'F1max': F1max,
+        'recall@1': num_correct_recall_1*100.0/num_revisits,
+        'recall@1%': num_correct_recall_1p*100.0/num_revisits
+    }
+
+    return output
 
 
 if __name__ == "__main__":
