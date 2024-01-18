@@ -63,7 +63,7 @@ data_arg.add_argument("--pnv_preprocessing", type=str2bool,
                       default=False, help="Preprocessing in dataloader for PNV.") # PointNetVLAD
 
 data_arg.add_argument('--helipr_dir', type=str,
-                      default='/mnt/264A65B74A658481/Dataset/HeLiPR/', help="Path to the HeLiPR dataset")
+                      default='/Dataset/', help="Path to the HeLiPR dataset")
 data_arg.add_argument("--helipr_normalize_intensity", type=str2bool,
                       default=False, help="Normalize intensity return.")
 data_arg.add_argument('--helipr_data_split', type=dict, default={

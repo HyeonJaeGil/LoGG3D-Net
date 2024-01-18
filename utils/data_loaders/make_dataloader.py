@@ -78,6 +78,10 @@ def make_data_loader(config, phase, batch_size, num_workers=0, shuffle=None, dis
                    random_rotation=use_random_rotation,
                    random_occlusion=use_random_occlusion,
                    config=config)
+    
+    # randomly sample a subset of the dataset
+    if config.subset_size > 0:
+        dset = torch.utils.data.Subset(dset, np.random.choice(len(dset), config.subset_size))
 
     collation_type = config.collation_type
     if (phase in ['train', 'trainval']):

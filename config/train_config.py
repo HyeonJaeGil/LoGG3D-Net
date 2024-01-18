@@ -23,7 +23,8 @@ trainer_arg.add_argument('--resume_checkpoint', type=str, default='')
 # Batch setting
 trainer_arg.add_argument('--batch_size', type=int, default=1) # Batch size is limited to 1.
 trainer_arg.add_argument('--train_num_workers', type=int,
-                         default=1)  # per gpu in dist. try 8
+                         default=2)  # per gpu in dist. try 8
+trainer_arg.add_argument('--subset_size', type=int, default=-1)
 
 # Contrastive
 trainer_arg.add_argument('--train_loss_function',
@@ -105,7 +106,7 @@ data_arg.add_argument('--mulran_data_split', type=dict, default={
 
 # HeLiPR
 data_arg.add_argument('--helipr_dir', type=str,
-                      default='/mnt/264A65B74A658481/Dataset/HeLiPR/', help="Path to the HeLiPR dataset")
+                      default='/Dataset/', help="Path to the HeLiPR dataset")
 data_arg.add_argument("--helipr_normalize_intensity", type=str2bool,
                       default=False, help="Normalize intensity return.")
 data_arg.add_argument('--helipr_tp_json', type=str,
@@ -142,9 +143,9 @@ data_arg.add_argument('--gp_vals', type=dict, default={
 })
 data_arg.add_argument('--val_phase', type=str, default="val")
 data_arg.add_argument('--test_phase', type=str, default="test")
-data_arg.add_argument('--use_random_rotation', type=str2bool, default=False)
+data_arg.add_argument('--use_random_rotation', type=str2bool, default=True)
 data_arg.add_argument('--rotation_range', type=float, default=360)
-data_arg.add_argument('--use_random_occlusion', type=str2bool, default=False)
+data_arg.add_argument('--use_random_occlusion', type=str2bool, default=True)
 data_arg.add_argument('--occlusion_angle', type=float, default=30)
 data_arg.add_argument('--use_random_scale', type=str2bool, default=False)
 data_arg.add_argument('--min_scale', type=float, default=0.8)

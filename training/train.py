@@ -125,10 +125,17 @@ def main():
 
                 if (dist.rank() % dist.size() == 0):
                     lr = scheduler.get_last_lr()
-                    logging.info('avg running loss: ' +
-                                 str(avg_loss) + ' LR: %03f' % (lr[0]))
-                    logging.info('avg_scene_loss: ' + str(avg_scene_loss) +
-                                 ' avg_point_loss: ' + str(avg_point_loss))
+                    log = ''
+                    log += 'epoch: %d, batch: %d / %d' % (epoch, i, len(train_loader))
+                    log += ' LR: %03f' % (lr[0]) + ' avg running loss: ' + str(avg_loss)
+                    log += ' avg_scene_loss: ' + str(avg_scene_loss)
+                    log += ' avg_point_loss: ' + str(avg_point_loss)
+                    logging.info(log)
+                    #logging.info('epoch: %d, batch: %d / %d' % (epoch, i, len(train_loader)))
+                    #logging.info('avg running loss: ' +
+                    #             str(avg_loss) + ' LR: %03f' % (lr[0]))
+                    #logging.info('avg_scene_loss: ' + str(avg_scene_loss) +
+                    #             ' avg_point_loss: ' + str(avg_point_loss))
                     writer.add_scalar('training loss',
                                       avg_loss,
                                       epoch * len(train_loader) + i)
@@ -143,10 +150,11 @@ def main():
         scheduler.step()
 
         if cfg.save_model_after_epoch and (dist.rank() % dist.size() == 0):
-            save_path = os.path.join(os.path.dirname(__file__), 'checkpoints')
+            # save_path = os.path.join(os.path.dirname(__file__), 'checkpoints')
+            save_path = os.path.join(os.path.dirname(__file__), 'checkpoints', cfg.experiment_name)
             if not os.path.exists(save_path):
                 os.makedirs(save_path)
-            save_path = str(save_path) + '/' + cfg.experiment_name
+            #save_path = str(save_path) + '/' + cfg.experiment_name
             logging.info("Saving to: " + str(save_path))
             if isinstance(model, torch.nn.DataParallel):
                 model_to_save = model.module
@@ -160,7 +168,8 @@ def main():
                 'optimizer_state_dict': optimizer.state_dict(),
                 'loss': loss
             },
-                save_path)
+                os.path.join(save_path, 'epoch_' + str(epoch) + '.pth'))
+                # save_path)
 
     logging.info("Finished training.")
 

@@ -28,7 +28,7 @@ if __name__ == "__main__":
     # Get model
     model = get_pipeline(cfg.eval_pipeline)
 
-    ckpt_path = os.path.join(os.path.dirname(__file__), '../', 'checkpoints')
+    ckpt_path = os.path.join(os.path.dirname(__file__), '../', 'training', 'checkpoints')
     ckpt_path = str(ckpt_path) + cfg.checkpoint_name
     print('Loading checkpoint from: ', ckpt_path)
     logging.info('\n' + ' '.join([sys.executable] + sys.argv))

@@ -131,6 +131,11 @@ def evaluate_inter_sequence(model, cfg, save_dir=None):
         cfg.cd_thresh_min, cfg.cd_thresh_max, int(cfg.num_thresholds))
     num_thresholds = len(thresholds)
 
+    # variables for recall N
+    num_correct_recall_1 = 0
+    num_correct_recall_1p = 0
+    one_percent = int(len(positions_query) * 0.01)
+
     # Store results of evaluation.
     num_true_positive = np.zeros(num_thresholds)
     num_false_positive = np.zeros(num_thresholds)
@@ -158,6 +163,15 @@ def evaluate_inter_sequence(model, cfg, save_dir=None):
             if is_nearby:
                 num_correct_loc += 1
                 is_correct_loc = 1
+
+        if is_revisit:
+            if is_nearby:
+                num_correct_recall_1 += 1
+            top_1p_indices = np.argsort(feat_dists)[:one_percent]
+            top_1p_dist = [check_nearby(positions_query[q_idx], positions_database[idx], 
+                                    cfg.revisit_criteria) for idx in top_1p_indices]
+            if sum(top_1p_dist) > 0:
+                num_correct_recall_1p += 1
 
         # info_string = (f'id: {q_idx:4d} n_id: {nearest_idx:4d} ' 
         #                f'q_is_revisit: {is_revisit:1d}  top1_is_nearby: {is_nearby:1d} ' 
@@ -231,7 +245,8 @@ def evaluate_inter_sequence(model, cfg, save_dir=None):
         f'F1_TN: {F1_TN} F1_FP: {F1_FP} F1_TP: {F1_TP} F1_FN: {F1_FN}')
     logging.info(f'F1_thresh_id: {F1_thresh_id}')
     logging.info(f'F1max: {F1max}')
-
+    logging.info(f'recall@1:  {num_correct_recall_1*100.0/num_revisits}')
+    logging.info(f'recall@1%: {num_correct_recall_1p*100.0/num_revisits}')
 
     ##### Save results #####
     save_descriptors = cfg.eval_save_descriptors

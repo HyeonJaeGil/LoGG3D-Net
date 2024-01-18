@@ -131,4 +131,5 @@ if __name__ == "__main__":
 
     t_thresh = 0
     # get_positive_dict(basedir, sequences, output_dir, 3, t_thresh)
-    get_positive_dict(basedir, sequences, output_dir, 20, t_thresh)
+    get_positive_dict(basedir, sequences, output_dir, 7.5, t_thresh)
+    # get_positive_dict(basedir, sequences, output_dir, 20, t_thresh)
