@@ -121,7 +121,7 @@ misc_arg.add_argument('--job_id', type=str, default='0')
 misc_arg.add_argument('--save_model_after_epoch', type=str2bool, default=True)
 misc_arg.add_argument('--eval_model_after_epoch', type=str2bool, default=False)
 misc_arg.add_argument('--out_dir', type=str, default='logs')
-misc_arg.add_argument('--loss_log_step', type=int, default=10)
+misc_arg.add_argument('--loss_log_step', type=int, default=100)
 misc_arg.add_argument('--checkpoint_epoch_step', type=int, default=3)
 
 

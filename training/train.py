@@ -24,6 +24,35 @@ logging.basicConfig(format='%(asctime)s %(message)s',
 logging.basicConfig(level=logging.INFO, format="")
 
 
+def evaluate(ckpt_path):
+    from config.eval_config import get_config_eval
+    from evaluation.eval_intra_sequence import evaluate_intra_sequence
+    from evaluation.eval_inter_sequence import evaluate_inter_sequence
+    eval_cfg = get_config_eval()
+
+    # Get model
+    model = get_pipeline(eval_cfg.eval_pipeline)
+    checkpoint = torch.load(ckpt_path)  # ,map_location='cuda:0')
+    model.load_state_dict(checkpoint['model_state_dict'])
+    model = model.cuda()
+    model.eval()
+    
+    if eval_cfg.eval_task == 'intra':
+        eval_output = evaluate_intra_sequence(model, eval_cfg)
+        logging.info(f'Evaluated Sequence: {eval_cfg.eval_seq}')
+    elif eval_cfg.eval_task == 'inter':
+        eval_output = evaluate_inter_sequence(model, eval_cfg, log_save_dir)
+        logging.info(f'Evaluated Sequence ==> '
+                     f'Query: {eval_cfg.eval_seq_q}, '
+                     f'Database: {eval_cfg.eval_seq_db}')
+
+    logging.info(
+        '\n' + '******************* Evaluation Complete *******************')
+    # logging.info('F1 Max: ' + str(eval_output['F1_max']))
+    logging.info('AUC: ' + str(eval_output['AUC']))
+    logging.info('recall@1: ' + str(eval_output['recall@1']))
+    logging.info('recall@1%: ' + str(eval_output['recall@1%']))
+
 def main():
     dist.init()
     torch.backends.cudnn.benchmark = True
@@ -170,6 +199,8 @@ def main():
             },
                 os.path.join(save_path, 'epoch_' + str(epoch) + '.pth'))
                 # save_path)
+            
+            evaluate(os.path.join(save_path, 'epoch_' + str(epoch) + '.pth'))
 
     logging.info("Finished training.")
 
